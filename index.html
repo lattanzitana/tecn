@@ -1707,6 +1707,106 @@ body.has-layer .bottom-bar { transform: translateY(calc(100% + 30px)); }
   [data-reveal="title"] { opacity: 1; }
 }
 
+/* ==========================================================================
+   Animaciones extra
+   ========================================================================== */
+
+/* Entradas al hacer scroll (las asigna el JS; sin JS todo queda visible) */
+[data-anim] {
+  opacity: 0;
+  transform: translateY(26px);
+  transition: opacity .8s var(--ease-out), transform .9s var(--ease-out);
+  transition-delay: calc(var(--ai, 0) * 90ms);
+}
+[data-anim="left"] { transform: translateX(-30px); }
+[data-anim="scale"] { transform: scale(.86); }
+[data-anim].is-in { opacity: 1; transform: none; }
+
+/* Parallax suave del hero al bajar */
+.hero__copy { translate: 0 calc(var(--hs, 0) * .06px); }
+.hero__visual { translate: 0 calc(var(--hs, 0) * -.14px); }
+
+/* Chispas que suben desde el logo */
+.hv__sparks { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.hv__sparks i {
+  position: absolute;
+  left: var(--x);
+  bottom: var(--y);
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: #d6e4ff;
+  box-shadow: 0 0 8px 2px rgba(85, 133, 255, .85);
+  opacity: 0;
+}
+.hero.is-charged .hv__sparks i { animation: spark var(--dur) cubic-bezier(.2, .6, .4, 1) var(--d) infinite; }
+@keyframes spark {
+  0% { opacity: 0; transform: translate(0, 0) scale(.5); }
+  12% { opacity: 1; }
+  70% { opacity: .7; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.15); }
+}
+
+/* Radar: puntos de entrega que aparecen cuando pasa el barrido */
+.radar__blip {
+  position: absolute;
+  left: var(--bx);
+  top: var(--by);
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  background: var(--ice);
+  box-shadow: 0 0 0 3px rgba(85, 133, 255, .25), 0 0 14px var(--volt-hi);
+  opacity: 0;
+  animation: blip 5s linear infinite;
+  animation-delay: var(--bd);
+}
+@keyframes blip {
+  0% { opacity: 0; transform: scale(.3); }
+  3% { opacity: 1; transform: scale(1.5); }
+  12% { transform: scale(1); }
+  45% { opacity: .55; }
+  70%, 100% { opacity: 0; transform: scale(.8); }
+}
+
+/* Microanimación del ícono al pasar el mouse por un botón */
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover > .i, .footer__link:hover .i, .btn-admin:hover .i { animation: iconNudge .6s var(--spring); }
+  .footer__logo { transition: transform .8s var(--spring); }
+  .footer__brand:hover .footer__logo { transform: rotate(-12deg) scale(1.08); }
+
+  /* Tarjetas con inclinación 3D y brillo que sigue al mouse */
+  .card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(340px circle at var(--mx, 50%) var(--my, 0%), rgba(143, 180, 255, .16), transparent 62%);
+    opacity: 0;
+    transition: opacity .35s;
+  }
+  .card:hover::before { opacity: 1; }
+  .card:hover { transform: perspective(900px) translateY(-6px) rotateX(var(--tx, 0deg)) rotateY(var(--ty, 0deg)); }
+}
+@keyframes iconNudge { 40% { transform: translateY(-2px) rotate(-12deg) scale(1.15); } 100% { transform: none; } }
+
+/* Ícono del filtro activo */
+.chip.is-active .i { animation: chipPop .55s var(--spring); }
+@keyframes chipPop { 40% { transform: scale(1.3) rotate(-10deg); } }
+
+/* Precio del detalle */
+.pd__price .price__now { transform-origin: 0 70%; }
+.pd__price .price__now.is-counting { animation: priceIn .7s var(--spring); }
+@keyframes priceIn { from { transform: scale(.85); opacity: .4; } to { transform: none; opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hv__sparks, .radar__blip { display: none; }
+  .hero__copy, .hero__visual { translate: none; }
+}
+
 /* Titular del hero medido contra su columna (container queries) */
 @supports (font-size: 1cqi) {
   .hero__title { font-size: clamp(4.2rem, 30cqi, 11.8rem); }
@@ -1784,6 +1884,7 @@ body.has-layer .bottom-bar { transform: translateY(calc(100% + 30px)); }
         <div class="hv__patch-wrap">
           <div class="ut-logo ut-logo--lg hv__patch" role="img" aria-label="Logo de URBAN TECH"></div>
         </div>
+        <div class="hv__sparks" id="heroSparks" aria-hidden="true"></div>
         <div id="heroTiles"></div>
       </div>
     </div>
@@ -1915,6 +2016,7 @@ body.has-layer .bottom-bar { transform: translateY(calc(100% + 30px)); }
       <div class="radar" aria-hidden="true">
         <span class="radar__ring"></span><span class="radar__ring"></span><span class="radar__ring"></span>
         <span class="radar__sweep"></span>
+        <span class="radar__blip" style="--bx:68%;--by:30%;--bd:.58s"></span><span class="radar__blip" style="--bx:62%;--by:74%;--bd:2.1s"></span><span class="radar__blip" style="--bx:28%;--by:62%;--bd:3.3s"></span><span class="radar__blip" style="--bx:30%;--by:36%;--bd:4.2s"></span>
         <span class="radar__pin"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg></span>
         <span class="radar__label">Azul<small>Buenos Aires</small></span>
       </div>
@@ -2830,7 +2932,7 @@ const UTArt = (() => {
   const numFmt = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
   const fmt = (n) => numFmt.format(Math.round(Number(n) || 0));
   const money = (n) => '$ ' + fmt(n);
-  const priceHTML = (n) => `<small>$</small>${fmt(n)}`;
+  const priceHTML = (n) => `<small>$</small><span class="price__num">${fmt(n)}</span>`;
   const parseMoney = (s) => { const d = String(s == null ? '' : s).replace(/[^\d]/g, ''); return d ? parseInt(d, 10) : NaN; };
   const norm = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const slug = (s) => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 36) || 'item';
@@ -3438,6 +3540,10 @@ const UTArt = (() => {
     $('#pdContent').innerHTML = productDetailHTML(p);
     $('#pdScroll').scrollTop = 0;
     syncPdActions();
+    if (!reduceMotion) {
+      const num = $('#pdContent .pd__price .price__num');
+      if (num) { countUp(num, p.price * 0.55, p.price, 750, fmt); restart(num.parentElement, 'is-counting'); }
+    }
     const layer = $('#productLayer');
     const hash = '#producto/' + encodeURIComponent(id);
     if (!isOpen(layer)) {
@@ -3617,6 +3723,7 @@ const UTArt = (() => {
   let ticking = false;
   let headerHidden = false;
   let coachY = null;
+  let heroH = 900;
 
   function setHeaderHidden(h) {
     if (h === headerHidden) return;
@@ -3664,6 +3771,7 @@ const UTArt = (() => {
       const max = document.documentElement.scrollHeight - window.innerHeight;
       $('#chargeLine').style.setProperty('--p', max > 0 ? (y / max).toFixed(4) : '0');
       header.classList.toggle('is-scrolled', y > 8);
+      if (!reduceMotion && y < heroH + 200) $('#hero').style.setProperty('--hs', Math.round(y));
       if (!isDesktop() && !openLayers.length) {
         const dy = y - lastY;
         if (y > 260 && dy > 6) setHeaderHidden(true);
@@ -4732,6 +4840,75 @@ const UTArt = (() => {
     });
   }
 
+  /* Entradas al hacer scroll para el resto de los bloques */
+  function setupAnims() {
+    if (reduceMotion || !('IntersectionObserver' in window)) return;
+    const groups = [
+      ['.section-sub', 'up', false],
+      ['.catalog__tools', 'up', false],
+      ['.faq-item', 'up', true],
+      ['.step', 'up', true],
+      ['.contact__text, .contact__ctas', 'up', true],
+      ['.radar', 'scale', false],
+      ['.footer__grid > *', 'up', true],
+      ['.footer__legal', 'up', false],
+    ];
+    const els = [];
+    groups.forEach(([sel, kind, stagger]) => {
+      $$(sel).forEach((el, i) => {
+        el.dataset.anim = kind;
+        el.style.setProperty('--ai', stagger ? i : 0);
+        els.push(el);
+      });
+    });
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((en) => {
+        if (!en.isIntersecting) return;
+        en.target.classList.add('is-in');
+        io.unobserve(en.target);
+        setTimeout(() => { en.target.style.removeProperty('--ai'); }, 1600);
+      });
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+    els.forEach((el) => io.observe(el));
+  }
+
+  /* Chispas del hero */
+  function setupSparks() {
+    const box = $('#heroSparks');
+    if (!box || reduceMotion) return;
+    const r = (a, b) => a + Math.random() * (b - a);
+    let html = '';
+    for (let i = 0; i < 16; i++) {
+      html += `<i style="--x:${r(22, 78).toFixed(1)}%;--y:${r(14, 40).toFixed(1)}%;--s:${r(2, 4.5).toFixed(1)}px;--dx:${r(-40, 40).toFixed(0)}px;--dy:${r(-260, -150).toFixed(0)}px;--dur:${r(2.6, 4.6).toFixed(2)}s;--d:${r(0, 4).toFixed(2)}s"></i>`;
+    }
+    box.innerHTML = html;
+  }
+
+  /* Tarjetas: inclinación 3D y brillo que sigue al mouse */
+  function setupTilt() {
+    if (!finePointer || reduceMotion) return;
+    const grid = $('#grid');
+    let cur = null;
+    let raf = 0;
+    const reset = (c) => { if (c) ['--tx', '--ty', '--mx', '--my'].forEach((k) => c.style.removeProperty(k)); };
+    grid.addEventListener('pointermove', (e) => {
+      const card = e.target.closest('.card');
+      if (card !== cur) { reset(cur); cur = card; }
+      if (!card) return;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const b = card.getBoundingClientRect();
+        const x = (e.clientX - b.left) / b.width;
+        const y = (e.clientY - b.top) / b.height;
+        card.style.setProperty('--mx', (x * 100).toFixed(1) + '%');
+        card.style.setProperty('--my', (y * 100).toFixed(1) + '%');
+        card.style.setProperty('--ty', ((x - 0.5) * 9).toFixed(2) + 'deg');
+        card.style.setProperty('--tx', ((0.5 - y) * 7).toFixed(2) + 'deg');
+      });
+    });
+    grid.addEventListener('pointerleave', () => { cancelAnimationFrame(raf); reset(cur); cur = null; });
+  }
+
   /* Compartir producto (enlace directo a la ficha) */
   async function shareProduct() {
     const p = productById(pd.id);
@@ -4823,6 +5000,10 @@ const UTArt = (() => {
     setupEvents();
     setupTicker();
     setupAdminTabsKeys();
+    setupAnims();
+    setupSparks();
+    setupTilt();
+    heroH = $('#hero').offsetHeight;
     setupAdminList();
     setupForm();
     setupSettings();
