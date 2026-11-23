@@ -1408,6 +1408,64 @@ p { margin: 0; }
   const KEY_PANEL = 'tanzzitana-garage:panel';
   const KEY_INTRO = 'tz-intro';
 
+  /* =====================================================================
+     Supabase — lectura y escritura en la nube
+     ===================================================================== */
+  const SB_URL  = 'https://rfdayrdnhcknmjbvkrih.supabase.co';
+  const SB_KEY  = 'sb_publishable_QmPuncIHR1lbTzkBcGi1BA_YZm8pYoS';
+  const SB_HDR  = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+
+  async function sbRead() {
+    try {
+      const r = await fetch(`${SB_URL}/rest/v1/servicios?select=*&order=orden.asc`, { headers: SB_HDR });
+      if (!r.ok) return null;
+      const rows = await r.json();
+      if (!Array.isArray(rows) || !rows.length) return null;
+      // Convertir filas de Supabase al formato interno
+      const servicios = rows.map(row => ({
+        id: row.id,
+        nombre: row.nombre || '',
+        categorias: Array.isArray(row.categoria) ? row.categoria : (row.categoria ? [row.categoria] : ['autos']),
+        precio: Number(row.precio) || 0,
+        desde: false,
+        precioAnterior: 0,
+        duracion: row.tiempo || '',
+        descripcion: '',
+        incluye: Array.isArray(row.incluye) ? row.incluye : [],
+        etiqueta: '',
+        imagen: row.imagen || '',
+        icono: '',
+        visible: row.activo !== false
+      }));
+      return normData({ negocio: negocioBase(), servicios });
+    } catch (e) { return null; }
+  }
+
+  async function sbWrite(data) {
+    // Eliminar todo y reemplazar (upsert completo)
+    try {
+      // Borrar todos los registros actuales
+      await fetch(`${SB_URL}/rest/v1/servicios?id=neq.____`, { method: 'DELETE', headers: SB_HDR });
+    } catch (e) { /* si falla el delete, intentamos igual */ }
+    const rows = data.servicios.map((s, i) => ({
+      id: s.id,
+      nombre: s.nombre,
+      categoria: s.categorias,
+      precio: s.precio,
+      tiempo: s.duracion,
+      incluye: s.incluye,
+      imagen: s.imagen || null,
+      activo: s.visible,
+      orden: i
+    }));
+    const r = await fetch(`${SB_URL}/rest/v1/servicios`, {
+      method: 'POST',
+      headers: Object.assign({}, SB_HDR, { 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
+      body: JSON.stringify(rows)
+    });
+    return r.ok || r.status === 201 || r.status === 204;
+  }
+
   const CATS = [
     { id: 'autos', label: 'Autos', veh: 'Auto', sub: 'Sedán, hatchback, coupé', icon: 'car' },
     { id: 'motos', label: 'Motos', veh: 'Moto', sub: 'Calle, enduro, scooter', icon: 'moto' },
@@ -2845,7 +2903,16 @@ p { margin: 0; }
     fillNegocio();
     renderStorage();
     saveFeedback();
-    toast('Cambios guardados', { sub: 'La web ya muestra los cambios.' });
+    toast('Guardando en la nube…', { sub: 'Los cambios se están publicando para todos.' });
+    sbWrite(next).then(ok => {
+      if (ok) {
+        toast('Cambios guardados', { sub: 'La web ya muestra los cambios para todos los visitantes.' });
+      } else {
+        toast('Guardado local OK', { type: 'warn', ms: 5000, sub: 'No se pudo publicar en la nube. Reintentá o exportá el respaldo.' });
+      }
+    }).catch(() => {
+      toast('Guardado local OK', { type: 'warn', ms: 5000, sub: 'No se pudo publicar en la nube. Reintentá o exportá el respaldo.' });
+    });
   }
 
   function adminEvents() {
@@ -3098,19 +3165,29 @@ p { margin: 0; }
      ===================================================================== */
   function loadPublished() {
     if (!/^https?:$/.test(location.protocol)) return;
-    fetch('servicios.json', { cache: 'no-store' })
-      .then(r => (r.ok ? r.json() : null))
-      .then(j => {
-        const remote = normData(j);
-        if (!remote || layers.includes($('#admin'))) return;
-        const local = store.read();
-        const newer = !local || (remote.actualizado && (!local.actualizado || remote.actualizado > local.actualizado));
-        if (!newer) return;
-        DATA = remote;
-        renderSite();
-        observeReveal($$('#grid .card'), true);
-      })
-      .catch(() => { /* sin servicios.json: se usa el catálogo del sitio */ });
+    // Intentar desde Supabase primero
+    sbRead().then(remote => {
+      if (!remote || layers.includes($('#admin'))) return;
+      DATA = remote;
+      store.write(DATA);
+      renderSite();
+      observeReveal($$('#grid .card'), true);
+    }).catch(() => {
+      // Fallback: servicios.json estático (si existe)
+      fetch('servicios.json', { cache: 'no-store' })
+        .then(r => (r.ok ? r.json() : null))
+        .then(j => {
+          const remote = normData(j);
+          if (!remote || layers.includes($('#admin'))) return;
+          const local = store.read();
+          const newer = !local || (remote.actualizado && (!local.actualizado || remote.actualizado > local.actualizado));
+          if (!newer) return;
+          DATA = remote;
+          renderSite();
+          observeReveal($$('#grid .card'), true);
+        })
+        .catch(() => { /* usa el catálogo local */ });
+    });
   }
 
   /* =====================================================================
