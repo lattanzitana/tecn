@@ -876,6 +876,12 @@ p { margin: 0; }
   .hood__sweep, .run, .foam { display: none; }
   .rv-wait { opacity: 1; transform: none; clip-path: none; }
 }
+
+/* Servicios "Próximamente" */
+.card--soon .card__art, .card--soon .card__media img { filter: saturate(.35) brightness(.8); }
+.card--soon .badge { background: var(--vial); color: var(--vial-ink); }
+.btn--soon { --b-bg: transparent; --b-ink: var(--tiza); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22); text-decoration: none; }
+@media (hover: hover) { .card:hover .btn--soon { --b-bg: rgba(255, 255, 255, .08); --b-ink: #fff; } }
 </style>
 </head>
 <body>
@@ -1422,7 +1428,7 @@ p { margin: 0; }
       const rows = await r.json();
       if (!Array.isArray(rows) || !rows.length) return null;
       // Convertir filas de Supabase al formato interno
-      const servicios = rows.map(row => ({
+      const servicios = rows.map(row => (row.datos && typeof row.datos === 'object') ? row.datos : ({
         id: row.id,
         nombre: row.nombre || '',
         categorias: Array.isArray(row.categoria) ? row.categoria : (row.categoria ? [row.categoria] : ['autos']),
@@ -1442,11 +1448,7 @@ p { margin: 0; }
   }
 
   async function sbWrite(data) {
-    // Eliminar todo y reemplazar (upsert completo)
-    try {
-      // Borrar todos los registros actuales
-      await fetch(`${SB_URL}/rest/v1/servicios?id=neq.____`, { method: 'DELETE', headers: SB_HDR });
-    } catch (e) { /* si falla el delete, intentamos igual */ }
+    // 1) Guardar/actualizar todos los servicios. 2) Recién si salió bien, borrar los eliminados.
     const rows = data.servicios.map((s, i) => ({
       id: s.id,
       nombre: s.nombre,
@@ -1456,14 +1458,22 @@ p { margin: 0; }
       incluye: s.incluye,
       imagen: s.imagen || null,
       activo: s.visible,
-      orden: i
+      orden: i,
+      datos: s
     }));
     const r = await fetch(`${SB_URL}/rest/v1/servicios`, {
       method: 'POST',
       headers: Object.assign({}, SB_HDR, { 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
       body: JSON.stringify(rows)
     });
-    return r.ok || r.status === 201 || r.status === 204;
+    if (!r.ok) {
+      console.error('[Tanzzitana] Supabase no aceptó el guardado:', r.status, await r.text().catch(() => ''));
+      return false;
+    }
+    const ids = rows.map(x => '"' + x.id.replace(/"/g, '') + '"').join(',');
+    const del = await fetch(`${SB_URL}/rest/v1/servicios?id=not.in.(${encodeURIComponent(ids)})`, { method: 'DELETE', headers: SB_HDR });
+    if (!del.ok) console.error('[Tanzzitana] No se pudieron borrar servicios eliminados:', del.status);
+    return true;
   }
 
   const CATS = [
@@ -1482,31 +1492,51 @@ p { margin: 0; }
       id: 'lavado-completo-auto',
       nombre: 'Lavado Completo Auto',
       categorias: ['autos'],
-      precio: 32000, desde: false, precioAnterior: 0,
-      duracion: '1 h 15 min',
+      precio: 25000, desde: false, precioAnterior: 0,
+      duracion: '1 a 2 h',
       descripcion: 'Exterior e interior en una sola visita. Tu auto queda limpio, seco y sin marcas, con productos que cuidan la pintura.',
       incluye: ['Prelavado con espuma activa', 'Lavado a mano con shampoo pH neutro', 'Llantas, neumáticos y pasaruedas', 'Aspirado de butacas, alfombras y baúl', 'Vidrios por dentro y por fuera'],
       etiqueta: '', imagen: '', icono: 'car', visible: true
     },
     {
-      id: 'lavado-detallado-moto',
-      nombre: 'Lavado Detallado Moto',
-      categorias: ['motos'],
-      precio: 22000, desde: false, precioAnterior: 0,
-      duracion: '1 h',
-      descripcion: 'Limpieza minuciosa pieza por pieza, cuidando la parte eléctrica, los plásticos y cada rincón del motor.',
-      incluye: ['Desengrasado de motor y transmisión', 'Llantas, rayos y frenos a detalle', 'Tanque, carenados y tablero a mano', 'Secado con aire en conectores y rincones', 'Lubricación de cadena'],
-      etiqueta: '', imagen: '', icono: 'moto', visible: true
+      id: 'lavado-suv',
+      nombre: 'Lavado Completo SUV',
+      categorias: ['camionetas'],
+      precio: 30000, desde: false, precioAnterior: 0,
+      duracion: '1 h 30 min a 2 h 30 min',
+      descripcion: 'El lavado completo pensado para SUV y crossovers: más altura y más superficie, el mismo nivel de detalle.',
+      incluye: ['Prelavado con espuma activa', 'Lavado a mano con shampoo pH neutro', 'Llantas, neumáticos y pasaruedas', 'Aspirado completo del habitáculo y baúl', 'Vidrios por dentro y por fuera'],
+      etiqueta: '', imagen: '', icono: 'pickup', visible: true
     },
     {
       id: 'lavado-camioneta-pickup',
       nombre: 'Lavado Camioneta / Pick-Up',
       categorias: ['camionetas'],
-      precio: 42000, desde: false, precioAnterior: 0,
-      duracion: '1 h 45 min',
-      descripcion: 'Pensado para vehículos grandes, con más superficie y más barro. El mismo nivel de detalle de la caja al techo.',
+      precio: 40000, desde: true, precioAnterior: 0,
+      duracion: '2 a 3 h',
+      descripcion: 'Para pick-ups y camionetas grandes, con más superficie y más barro. Va de $ 40.000 a $ 45.000 según el tamaño.',
       incluye: ['Espuma activa y lavado a mano completo', 'Caja de carga, estribos y zócalos', 'Llantas, neumáticos y pasaruedas', 'Aspirado completo del habitáculo', 'Vidrios y secado con microfibra'],
       etiqueta: '', imagen: '', icono: 'pickup', visible: true
+    },
+    {
+      id: 'lavado-detallado-moto',
+      nombre: 'Lavado Detallado Moto',
+      categorias: ['motos'],
+      precio: 15000, desde: false, precioAnterior: 0,
+      duracion: '1 a 1 h 30 min',
+      descripcion: 'Limpieza minuciosa pieza por pieza, cuidando la parte eléctrica, los plásticos y cada rincón.',
+      incluye: ['Desengrasado de motor y transmisión', 'Llantas, rayos y frenos a detalle', 'Tanque, carenados y tablero a mano', 'Secado con aire en conectores y rincones', 'Lubricación de cadena'],
+      etiqueta: '', imagen: '', icono: 'moto', visible: true
+    },
+    {
+      id: 'lavado-camion',
+      nombre: 'Lavado de Camión',
+      categorias: ['especiales'],
+      precio: 55000, desde: false, precioAnterior: 0,
+      duracion: '4 a 5 h',
+      descripcion: 'Lavado completo para camiones: cabina, chasis a la vista, llantas y caja, con el tiempo que un vehículo grande necesita.',
+      incluye: ['Espuma activa y lavado a mano de cabina', 'Caja, laterales y paragolpes', 'Llantas, neumáticos y guardabarros', 'Aspirado y limpieza del interior de la cabina', 'Vidrios y espejos'],
+      etiqueta: '', imagen: '', icono: 'van', visible: true
     },
     {
       id: 'limpieza-profunda-interior',
@@ -1514,29 +1544,39 @@ p { margin: 0; }
       categorias: ['autos', 'camionetas', 'especiales'],
       precio: 85000, desde: true, precioAnterior: 0,
       duracion: '3 a 4 h',
-      descripcion: 'Tapizados, alfombras y plásticos limpios en profundidad. El interior vuelve a estado de salón y sin olores.',
-      incluye: ['Aspirado profundo y soplado de rincones', 'Tapizados y alfombras con inyección y extracción', 'Plásticos, paneles y tablero acondicionados', 'Techo, cinturones y salidas de aire', 'Desodorización final del habitáculo'],
+      descripcion: 'Sacamos los asientos y aspiramos todo a la perfección, rincón por rincón. El interior queda como nuevo y sin olores.',
+      incluye: ['Desmontaje de asientos para llegar a todo', 'Aspirado profundo de piso, alfombras y rincones', 'Plásticos, paneles y tablero limpios y acondicionados', 'Techo, cinturones y salidas de aire', 'Desodorización final del habitáculo'],
       etiqueta: '', imagen: '', icono: 'seat', visible: true
     },
     {
-      id: 'lavado-encerado-brillo',
-      nombre: 'Lavado + Encerado / Protección de Brillo',
-      categorias: ['autos', 'motos', 'camionetas', 'especiales'],
-      precio: 58000, desde: true, precioAnterior: 0,
-      duracion: '2 h 30 min',
-      descripcion: 'Lavado completo más una capa de cera protectora aplicada a mano. Más brillo, el agua resbala y la pintura queda protegida del sol.',
-      incluye: ['Lavado completo a mano', 'Descontaminado y preparación de la pintura', 'Cera protectora aplicada a mano', 'Efecto hidrofóbico y protección UV', 'Neumáticos y plásticos exteriores acondicionados'],
-      etiqueta: 'Brillo extremo', imagen: '', icono: 'sparkles', visible: true
+      id: 'lavado-de-chasis',
+      nombre: 'Lavado de Chasis',
+      categorias: ['autos', 'camionetas', 'especiales'],
+      precio: 30000, desde: false, precioAnterior: 0,
+      duracion: '1 h',
+      descripcion: 'Limpieza de la parte de abajo del vehículo: sacamos barro, tierra y grasa acumulada del chasis y los pasaruedas.',
+      incluye: ['Desengrasado del chasis', 'Lavado a presión de la parte inferior', 'Pasaruedas y zócalos', 'Enjuague y secado'],
+      etiqueta: '', imagen: '', icono: 'drop', visible: true
     },
     {
       id: 'lavado-de-motor',
       nombre: 'Lavado de Motor',
       categorias: ['autos', 'camionetas', 'especiales'],
-      precio: 25000, desde: false, precioAnterior: 0,
+      precio: 35000, desde: false, precioAnterior: 0,
       duracion: '45 min',
       descripcion: 'Limpieza segura del vano motor. Desengrasamos, protegemos la parte eléctrica y dejamos todo prolijo y acondicionado.',
       incluye: ['Protección previa de componentes eléctricos', 'Desengrasante específico para motor', 'Enjuague controlado a baja presión', 'Secado con aire y acondicionado de plásticos y gomas'],
-      etiqueta: '', imagen: '', icono: 'engine', visible: true
+      etiqueta: 'Próximamente', imagen: '', icono: 'engine', visible: true
+    },
+    {
+      id: 'lavado-encerado-brillo',
+      nombre: 'Lavado + Cera Premium',
+      categorias: ['autos', 'motos', 'camionetas', 'especiales'],
+      precio: 58000, desde: true, precioAnterior: 0,
+      duracion: '2 h 30 min',
+      descripcion: 'Lavado completo más una capa de cera premium aplicada a mano. Más brillo, el agua resbala y la pintura queda protegida del sol.',
+      incluye: ['Lavado completo a mano', 'Descontaminado y preparación de la pintura', 'Cera premium aplicada a mano', 'Efecto hidrofóbico y protección UV', 'Neumáticos y plásticos exteriores acondicionados'],
+      etiqueta: 'Próximamente', imagen: '', icono: 'sparkles', visible: true
     }
   ];
 
@@ -1646,6 +1686,7 @@ p { margin: 0; }
   const srvById = id => DATA.servicios.find(s => s.id === id) || null;
   const isPromo = s => (s.precioAnterior > s.precio && s.precio > 0) || /promo|oferta|descuento|% ?off/i.test(s.etiqueta);
   const inCat = (s, cat) => !!s && (cat === 'todos' ? true : cat === 'promos' ? isPromo(s) : s.categorias.includes(cat));
+  const isSoon = s => !!s && /pr[oó]ximamente|muy pronto/i.test(s.etiqueta);
   const iconOf = s => s.icono || (catById(s.categorias[0]) || CATS[0]).icon;
 
   /* =====================================================================
@@ -1683,7 +1724,7 @@ p { margin: 0; }
     const price = s.precio > 0
       ? `${promo ? `<s>${ars(s.precioAnterior)}</s>` : ''}<span>${ars(s.precio)}</span>`
       : '<span class="is-ask">A consultar</span>';
-    return `<article class="card${promo || /promo/i.test(s.etiqueta) ? ' card--promo' : ''}" data-id="${esc(s.id)}">
+    return `<article class="card${promo || /promo/i.test(s.etiqueta) ? ' card--promo' : ''}${isSoon(s) ? ' card--soon' : ''}" data-id="${esc(s.id)}">
       <div class="card__media" data-paint="${esc(s.categorias[0] || 'autos')}">
         <div class="card__art">${ic(iconOf(s), 'card__icon')}</div>
         ${s.imagen ? `<img src="${esc(s.imagen)}" alt="" loading="lazy" decoding="async">` : ''}
@@ -1698,7 +1739,9 @@ p { margin: 0; }
           <div class="spec spec--price"><dt>${s.precio > 0 ? (s.desde ? 'Desde' : 'Precio') : 'Precio'}</dt><dd>${price}</dd></div>
         </dl>
         ${list ? `<ul class="card__list">${list}</ul>` : ''}
-        ${opts.preview ? '' : `<button class="btn btn--card" type="button" data-book="${esc(s.id)}">${ic('calendar')}<span>Reservar turno</span></button>`}
+        ${opts.preview ? '' : isSoon(s)
+          ? `<a class="btn btn--card btn--soon" href="${esc(waURL(`¡Hola, Tanzzitana Garage! Me interesa "${s.nombre}". Avisame cuando esté disponible.`))}" target="_blank" rel="noopener">${ic('clock')}<span>Avisame cuando esté</span></a>`
+          : `<button class="btn btn--card" type="button" data-book="${esc(s.id)}">${ic('calendar')}<span>Reservar turno</span></button>`}
       </div>
       <span class="card__shine" aria-hidden="true"></span>
     </article>`;
@@ -2244,7 +2287,7 @@ p { margin: 0; }
   }
 
   function renderSrvList() {
-    const list = visibles().filter(s => bk.veh && s.categorias.includes(bk.veh));
+    const list = visibles().filter(s => bk.veh && s.categorias.includes(bk.veh) && !isSoon(s));
     const items = list.map(s => `<button class="sopt" type="button" role="radio" aria-checked="${bk.srv === s.id}" data-srv="${esc(s.id)}">
         <span class="sopt__ic" data-paint="${esc(s.categorias[0])}">${ic(iconOf(s))}</span>
         <span><b>${esc(s.nombre)}</b>${s.duracion ? `<small>${esc(s.duracion)}</small>` : ''}</span>
@@ -2321,7 +2364,8 @@ p { margin: 0; }
 
   function openBooking(opts, opener) {
     opts = opts || {};
-    const s = opts.srv ? srvById(opts.srv) : null;
+    let s = opts.srv ? srvById(opts.srv) : null;
+    if (isSoon(s)) s = null;
     bk.srv = null; bk.dia = null; bk.diaText = ''; bk.franja = null;
     bk.veh = catById(currentCat) ? currentCat : null;
     if (s) { bk.srv = s.id; bk.veh = s.categorias.includes(currentCat) ? currentCat : s.categorias[0]; }
